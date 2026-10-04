@@ -1,0 +1,199 @@
+name: Build Debug APK & Create Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build Debug APK & Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        id: checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        id: setup_jdk
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Set up Android SDK
+        id: setup_sdk
+        uses: android-actions/setup-android@v3
+
+      - name: Ensure Gradle Wrapper Executable
+        id: chmod_gradlew
+        run: chmod +x ./gradlew
+
+      - name: Compile Android Debug APK
+        id: assemble_debug
+        run: ./gradlew assembleDebug
+
+      - name: Locate and Validate Generated APK
+        id: validate_apk
+        run: |
+          echo "Scanning for generated APK files..."
+          APK_FILE=$(find app/build/outputs -type f -name "*.apk" | head -n 1)
+
+          if [ -z "$APK_FILE" ] || [ ! -f "$APK_FILE" ]; then
+            echo "::error::CRITICAL FAILURE: No APK file was found in app/build/outputs!"
+            exit 1
+          fi
+
+          FILE_SIZE_BYTES=$(stat -c%s "$APK_FILE")
+          if [ "$FILE_SIZE_BYTES" -le 0 ]; then
+            echo "::error::CRITICAL FAILURE: Generated APK file has 0 bytes!"
+            exit 1
+          fi
+
+          mkdir -p release_dist
+          cp "$APK_FILE" release_dist/ZX-Icon-Changer-debug.apk
+
+          SHA256_HASH=$(sha256sum release_dist/ZX-Icon-Changer-debug.apk | awk '{print $1}')
+          FILE_SIZE_HUMAN=$(ls -lh release_dist/ZX-Icon-Changer-debug.apk | awk '{print $5}')
+          TAG_NAME="debug-${{ github.run_number }}"
+          RELEASE_TITLE="ZX Icon Changer Debug #${{ github.run_number }}"
+
+          echo "APK_PATH=release_dist/ZX-Icon-Changer-debug.apk" >> $GITHUB_ENV
+          echo "SHA256_HASH=$SHA256_HASH" >> $GITHUB_ENV
+          echo "FILE_SIZE_HUMAN=$FILE_SIZE_HUMAN" >> $GITHUB_ENV
+          echo "FILE_SIZE_BYTES=$FILE_SIZE_BYTES" >> $GITHUB_ENV
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
+          echo "RELEASE_TITLE=$RELEASE_TITLE" >> $GITHUB_ENV
+
+          echo "APK Found: $APK_FILE"
+          echo "Prepared Target: release_dist/ZX-Icon-Changer-debug.apk"
+          echo "Size: $FILE_SIZE_HUMAN ($FILE_SIZE_BYTES bytes)"
+          echo "SHA-256: $SHA256_HASH"
+
+      - name: Upload Backup Artifact
+        id: upload_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ZX-Icon-Changer-Debug-APK
+          path: release_dist/ZX-Icon-Changer-debug.apk
+          retention-days: 30
+
+      - name: Create GitHub Release and Upload APK Asset
+        id: create_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat << 'EOF' > release_notes.md
+          # ${{ env.RELEASE_TITLE }}
+          **Engineering & Branding:** ZUCCHERO XANN (ZX)
+
+          Build Debug APK asli yang dikompilasi secara otomatis melalui Android Gradle (`./gradlew assembleDebug`) di GitHub Actions.
+
+          ---
+
+          ### 📦 Download Debug APK:
+          - **File:** `ZX-Icon-Changer-debug.apk`
+          - **Ukuran File:** ${{ env.FILE_SIZE_HUMAN }} (${{ env.FILE_SIZE_BYTES }} bytes)
+          - **SHA-256 Checksum:**
+            ```text
+            ${{ env.SHA256_HASH }}
+            ```
+
+          ---
+
+          ### 📱 Kompatibilitas Sistem:
+          - **Build Variant:** Debug APK (Signed with Android debug keystore)
+          - **Package Name:** `com.aistudio.zxiconchanger.app`
+          - **Minimum Android:** Android 7.0 (API level 24, Nougat)
+          - **Target Android:** Android 16 (API level 36)
+
+          ---
+
+          ### ℹ️ Petunjuk Instalasi:
+          1. Unduh file `ZX-Icon-Changer-debug.apk` pada bagian Assets di bawah.
+          2. Buka file APK pada perangkat Android Anda.
+          3. Berikan izin pemasangan aplikasi dari sumber tidak dikenal bila diminta.
+          4. Buka aplikasi ZX Icon Changer dan nikmati kustomisasi launcher icon Anda.
+          EOF
+
+          gh release create "${{ env.TAG_NAME }}" "${{ env.APK_PATH }}" \
+            --title "${{ env.RELEASE_TITLE }}" \
+            --notes-file release_notes.md \
+            --prerelease
+
+      - name: Verify Release & Asset Existence
+        id: verify_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Verifying created release and uploaded asset..."
+          RELEASE_DATA=$(gh release view "${{ env.TAG_NAME }}" --json url,assets)
+          ASSET_COUNT=$(echo "$RELEASE_DATA" | jq '.assets | length')
+          ASSET_NAME=$(echo "$RELEASE_DATA" | jq -r '.assets[0].name // empty')
+          ASSET_SIZE=$(echo "$RELEASE_DATA" | jq -r '.assets[0].size // 0')
+          RELEASE_URL=$(echo "$RELEASE_DATA" | jq -r '.url // empty')
+
+          if [ -z "$RELEASE_URL" ]; then
+            echo "::error::CRITICAL: GitHub Release was not created or cannot be resolved!"
+            exit 1
+          fi
+
+          if [ "$ASSET_COUNT" -lt 1 ] || [ "$ASSET_NAME" != "ZX-Icon-Changer-debug.apk" ] || [ "$ASSET_SIZE" -le 0 ]; then
+            echo "::error::CRITICAL: Asset ZX-Icon-Changer-debug.apk not found in release or size is 0 bytes!"
+            exit 1
+          fi
+
+          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ env.TAG_NAME }}/ZX-Icon-Changer-debug.apk"
+          echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_ENV
+          echo "RELEASE_URL=$RELEASE_URL" >> $GITHUB_ENV
+
+          echo "=============================================="
+          echo "RELEASE VERIFICATION PASSED"
+          echo "Release URL:  $RELEASE_URL"
+          echo "Asset Name:   $ASSET_NAME"
+          echo "Asset Size:   $ASSET_SIZE bytes"
+          echo "Download URL: $DOWNLOAD_URL"
+          echo "=============================================="
+
+      - name: Generate Workflow Summary (Success)
+        if: success()
+        run: |
+          cat << EOF >> $GITHUB_STEP_SUMMARY
+          ## BUILD STATUS: SUCCESS
+
+          - **APK:** \`ZX-Icon-Changer-debug.apk\`
+          - **SIZE:** ${{ env.FILE_SIZE_HUMAN }}
+          - **SHA-256:** \`${{ env.SHA256_HASH }}\`
+          - **RELEASE:** [${{ env.RELEASE_TITLE }}](${{ env.RELEASE_URL }})
+          - **DOWNLOAD:** [Download ZX-Icon-Changer-debug.apk](${{ env.DOWNLOAD_URL }})
+
+          ### Detail Informasi:
+          \`\`\`text
+          APK File:     ZX-Icon-Changer-debug.apk
+          Release URL:  ${{ env.RELEASE_URL }}
+          Download URL: ${{ env.DOWNLOAD_URL }}
+          SHA-256:      ${{ env.SHA256_HASH }}
+          \`\`\`
+          EOF
+
+      - name: Failure Diagnostic Summary
+        if: failure()
+        run: |
+          cat << 'EOF' >> $GITHUB_STEP_SUMMARY
+          ## BUILD FAILED
+
+          **Status:** Workflow mengalami kegagalan pada proses build atau verifikasi release.
+          
+          **Langkah Diagnostik:**
+          1. Periksa log detail pada langkah yang berwarna merah di atas.
+          2. Pastikan file APK berhasil dibuat oleh task \`./gradlew assembleDebug\`.
+          3. Pastikan izin \`GITHUB_TOKEN\` memiliki akses \`contents: write\`.
+          EOF
