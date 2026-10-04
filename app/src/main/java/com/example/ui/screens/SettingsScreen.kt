@@ -294,44 +294,12 @@ fun SettingsScreen(viewModel: MainViewModel) {
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         ZXButton(
-                            text = "Download APK (GitHub Actions)",
-                            onClick = {
-                                val intent = android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse(com.example.data.repository.UpdateRepository.ACTIONS_URL)
-                                ).apply { flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK }
-                                context.startActivity(intent)
-                            },
+                            text = "DOWNLOAD APK (DEBUG & RELEASE)",
+                            onClick = { viewModel.navigateTo(com.example.ui.Screen.DOWNLOAD_RELEASE) },
                             icon = Icons.Default.Download,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .testTag("settings_download_actions_btn")
-                        )
-
-                        ZXOutlinedButton(
-                            text = if (isCheckingRelease) "Memeriksa Rilis..." else "Download Release APK (Official)",
-                            onClick = {
-                                coroutineScope.launch {
-                                    isCheckingRelease = true
-                                    val release = viewModel.updateRepository.getLatestReleaseInfo()
-                                    isCheckingRelease = false
-                                    if (release != null) {
-                                        val url = release.downloadUrl ?: release.releaseUrl
-                                        val intent = android.content.Intent(
-                                            android.content.Intent.ACTION_VIEW,
-                                            android.net.Uri.parse(url)
-                                        ).apply { flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK }
-                                        context.startActivity(intent)
-                                    } else {
-                                        releaseUnavailableMessage = "APK release belum tersedia.\n\nRelease resmi belum dipublikasikan di repository GitHub. Anda dapat mengunduh Debug APK dari artifact GitHub Actions atau membuat tag rilis di GitHub."
-                                    }
-                                }
-                            },
-                            icon = Icons.Default.Download,
-                            enabled = !isCheckingRelease,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("settings_download_latest_btn")
+                                .testTag("settings_download_menu_btn")
                         )
 
                         Row(

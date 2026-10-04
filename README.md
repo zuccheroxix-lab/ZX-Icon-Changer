@@ -1,6 +1,6 @@
 # ZX Icon Changer
 
-[![Build Debug APK & Create Release](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions/workflows/build-debug-release.yml/badge.svg)](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions/workflows/build-debug-release.yml)
+[![Build Debug & Release APK and Publish Release](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions/workflows/build-debug-release.yml/badge.svg)](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions/workflows/build-debug-release.yml)
 [![Releases](https://img.shields.io/github/v/release/zuccheroxix-lab/ZX-Icon-Changer?color=00E5FF&label=Releases)](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B-brightgreen)](https://developer.android.com)
@@ -11,20 +11,30 @@ Dikembangkan dengan estetika futuristik **ZX Cyber** (*ZUCCHERO XANN*).
 
 ---
 
-## 📥 Download Debug APK
+## 📥 Download APK
 
-APK tersedia di GitHub Releases.
+File APK resmi tersedia langsung pada bagian **Assets** di GitHub Releases:
 
-👉 **[Download Debug APK (GitHub Releases)](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases)**
+👉 **[Buka Halaman GitHub Releases](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases)**
 
-### Cara Download APK Asli:
+### Pilihan Unduhan Langsung:
+1. **Debug APK (`ZX-Icon-Changer-debug.apk`)**:
+   - **Ukuran File**: ~23 MB
+   - **Instalasi**: Langsung dapat dipasang di seluruh perangkat Android 7.0+ tanpa setup sertifikat.
+   - **Otomasi**: Dibuat dan dilampirkan otomatis ke Release Assets setiap ada push ke `main` atau trigger workflow.
+2. **Release APK (`ZX-Icon-Changer-release.apk`)**:
+   - **Ukuran File**: ~16 MB
+   - **Instalasi**: Versi teroptimasi ukuran file dan performa runtime.
+
+### Pola Direct Asset Download:
+- **Debug APK**: `https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases/download/<TAG>/ZX-Icon-Changer-debug.apk`
+- **Release APK**: `https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases/download/<TAG>/ZX-Icon-Changer-release.apk`
+
+### Cara Download & Pasang:
 1. Buka halaman **[Releases](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases)**.
-2. Pilih rilis terbaru (contoh: **`ZX Icon Changer Debug #...`**).
-3. Di bagian **Assets**, klik file **`ZX-Icon-Changer-debug.apk`**.
-4. File APK asli akan langsung terdownload ke perangkat Anda.
-
-> **Catatan Otomasi CI/CD:**  
-> Setiap kali project ini di-push ke branch `main` atau dijalankan via `workflow_dispatch`, GitHub Actions otomatis menjalankan `./gradlew assembleDebug`, memvalidasi APK, membuat GitHub Release, dan melampirkan file `ZX-Icon-Changer-debug.apk` ke daftar Assets.
+2. Pilih rilis terbaru (contoh: **`ZX Icon Changer v1.0.0 (Build #...)`**).
+3. Di bagian **Assets**, klik file **`ZX-Icon-Changer-debug.apk`** atau **`ZX-Icon-Changer-release.apk`**.
+4. File APK asli akan langsung terdownload ke perangkat Android Anda.
 
 ---
 
@@ -64,8 +74,8 @@ APK tersedia di GitHub Releases.
   - Ekspor seluruh konfigurasi dan icon bitmap ke file JSON portabel via SAF.
   - Impor dan pulihkan cadangan secara offline tanpa server eksternal.
 
-- **Pembaruan Aplikasi (Update Checker)**:
-  - Terintegrasi langsung dengan GitHub Releases API resmi di menu Pengaturan.
+- **Pembaruan & Download In-App**:
+  - Menu khusus **DOWNLOAD APK** di aplikasi yang memantau status rilis, tanggal build, ukuran file, dan tombol unduhan langsung.
 
 ---
 
@@ -103,13 +113,13 @@ chmod +x gradlew
 ```bash
 ./gradlew assembleDebug
 ```
-*Hasil APK akan berada di:* `app/build/outputs/apk/debug/app-debug.apk`
+*Hasil APK:* `app/build/outputs/apk/debug/app-debug.apk` (Ukuran: ~23 MB)
 
 ### 4. Build Release APK
 ```bash
 ./gradlew assembleRelease
 ```
-*Hasil APK akan berada di:* `app/build/outputs/apk/release/app-release.apk`
+*Hasil APK:* `app/build/outputs/apk/release/app-release.apk` (Ukuran: ~16 MB)
 
 ### 5. Menjalankan Unit & Robolectric Tests
 ```bash
@@ -118,17 +128,16 @@ chmod +x gradlew
 
 ---
 
-## 🚀 Alur Kerja Distribusi (GitHub Actions)
+## 🚀 Alur Kerja CI/CD (GitHub Actions)
 
 Project ini dilengkapi workflow `.github/workflows/build-debug-release.yml`:
-1. Berjalan otomatis saat ada `push` ke branch `main` atau `workflow_dispatch`.
-2. Menjalankan `./gradlew assembleDebug`.
-3. Memvalidasi bahwa file `app/build/outputs/apk/debug/app-debug.apk` benar-benar dibuat dan memiliki ukuran valid (> 0 bytes).
-4. Menyalin APK menjadi `ZX-Icon-Changer-debug.apk`.
-5. Menghitung checksum SHA-256 asli.
-6. Membuat GitHub Release otomatis (`ZX Icon Changer Debug #<run_number>`).
-7. Melampirkan `ZX-Icon-Changer-debug.apk` ke bagian Release Assets.
-8. Menampilkan URL download langsung di Workflow Summary.
+1. Berjalan otomatis pada `push` ke branch `main`, `workflow_dispatch`, atau pembuatan `tag` rilis.
+2. Membangun **Debug APK** (`./gradlew assembleDebug`) dan **Release APK** (`./gradlew assembleRelease`).
+3. Memvalidasi bahwa file APK nyata dihasilkan (> 0 bytes).
+4. Menghitung checksum SHA-256 asli.
+5. Mengunggah artifact ke GitHub Actions.
+6. Membuat **GitHub Release** otomatis dan melampirkan file `ZX-Icon-Changer-debug.apk` dan `ZX-Icon-Changer-release.apk` langsung ke **Release Assets**.
+7. Menampilkan tautan unduhan langsung di ringkasan GitHub Actions.
 
 ---
 
@@ -146,13 +155,13 @@ git branch -M main
 
 # 3. Tambahkan seluruh file dan commit
 git add .
-git commit -m "feat: Automated Debug APK build and release pipeline"
+git commit -m "feat: Automated Debug & Release APK build and publishing pipeline"
 
 # 4. Push ke GitHub
 git push -u origin main
 ```
 
-Setelah push ke branch `main`, GitHub Actions akan otomatis membuat rilis debug dan menyediakan file `ZX-Icon-Changer-debug.apk` di tab [Releases](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases).
+Setelah push ke branch `main`, GitHub Actions akan otomatis membuat rilis dan menyediakan file APK asli di tab [Releases](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases).
 
 ---
 

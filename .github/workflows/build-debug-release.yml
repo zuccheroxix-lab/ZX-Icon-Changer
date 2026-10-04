@@ -1,17 +1,20 @@
-name: Build Debug APK & Create Release
+name: Build Debug & Release APK and Publish Release
 
 on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
+      - 'debug-*'
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  build-and-release:
-    name: Build Debug APK & Publish Release
+  build-and-publish:
+    name: Compile APKs & Publish Release
     runs-on: ubuntu-latest
 
     steps:
@@ -33,60 +36,113 @@ jobs:
         id: setup_sdk
         uses: android-actions/setup-android@v3
 
-      - name: Ensure Gradle Wrapper Executable
+      - name: Grant Executable Permission to gradlew
         id: chmod_gradlew
         run: chmod +x ./gradlew
+
+      - name: Resolve Release Signing Keystore
+        id: resolve_keystore
+        run: |
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "Production keystore detected from GitHub Secrets."
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > "${{ github.workspace }}/my-upload-key.jks"
+            echo "STORE_PASSWORD=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_ENV
+            echo "KEY_ALIAS=${{ secrets.KEY_ALIAS }}" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_ENV
+          else
+            echo "Generating build-compatible signing keystore for assembleRelease..."
+            keytool -genkeypair -v \
+              -keystore "${{ github.workspace }}/my-upload-key.jks" \
+              -alias upload \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass android \
+              -keypass android \
+              -dname "CN=ZX Icon Changer, OU=Release, O=ZUCCHERO XANN, C=ID"
+            echo "STORE_PASSWORD=android" >> $GITHUB_ENV
+            echo "KEY_ALIAS=upload" >> $GITHUB_ENV
+            echo "KEY_PASSWORD=android" >> $GITHUB_ENV
+          fi
+          echo "KEYSTORE_PATH=${{ github.workspace }}/my-upload-key.jks" >> $GITHUB_ENV
 
       - name: Compile Android Debug APK
         id: assemble_debug
         run: ./gradlew assembleDebug
 
-      - name: Locate and Validate Generated APK
-        id: validate_apk
+      - name: Compile Android Release APK
+        id: assemble_release
+        run: ./gradlew assembleRelease
+
+      - name: Locate, Validate, and Prepare APKs
+        id: validate_apks
         run: |
-          echo "Scanning for generated APK files..."
-          APK_FILE=$(find app/build/outputs -type f -name "*.apk" | head -n 1)
-
-          if [ -z "$APK_FILE" ] || [ ! -f "$APK_FILE" ]; then
-            echo "::error::CRITICAL FAILURE: No APK file was found in app/build/outputs!"
-            exit 1
-          fi
-
-          FILE_SIZE_BYTES=$(stat -c%s "$APK_FILE")
-          if [ "$FILE_SIZE_BYTES" -le 0 ]; then
-            echo "::error::CRITICAL FAILURE: Generated APK file has 0 bytes!"
-            exit 1
-          fi
-
           mkdir -p release_dist
-          cp "$APK_FILE" release_dist/ZX-Icon-Changer-debug.apk
 
-          SHA256_HASH=$(sha256sum release_dist/ZX-Icon-Changer-debug.apk | awk '{print $1}')
-          FILE_SIZE_HUMAN=$(ls -lh release_dist/ZX-Icon-Changer-debug.apk | awk '{print $5}')
-          TAG_NAME="debug-${{ github.run_number }}"
-          RELEASE_TITLE="ZX Icon Changer Debug #${{ github.run_number }}"
+          echo "Searching for generated APK files..."
+          DEBUG_APK=$(find app/build/outputs -type f -name "*debug*.apk" | head -n 1)
+          RELEASE_APK=$(find app/build/outputs -type f -name "*release*.apk" | head -n 1)
 
-          echo "APK_PATH=release_dist/ZX-Icon-Changer-debug.apk" >> $GITHUB_ENV
-          echo "SHA256_HASH=$SHA256_HASH" >> $GITHUB_ENV
-          echo "FILE_SIZE_HUMAN=$FILE_SIZE_HUMAN" >> $GITHUB_ENV
-          echo "FILE_SIZE_BYTES=$FILE_SIZE_BYTES" >> $GITHUB_ENV
+          if [ -z "$DEBUG_APK" ] || [ ! -f "$DEBUG_APK" ]; then
+            echo "::error::CRITICAL FAILURE: Debug APK file was NOT generated!"
+            exit 1
+          fi
+
+          DEBUG_BYTES=$(stat -c%s "$DEBUG_APK")
+          if [ "$DEBUG_BYTES" -le 0 ]; then
+            echo "::error::CRITICAL FAILURE: Debug APK file has 0 bytes!"
+            exit 1
+          fi
+
+          cp "$DEBUG_APK" release_dist/ZX-Icon-Changer-debug.apk
+          DEBUG_SHA256=$(sha256sum release_dist/ZX-Icon-Changer-debug.apk | awk '{print $1}')
+          DEBUG_SIZE_HUMAN=$(ls -lh release_dist/ZX-Icon-Changer-debug.apk | awk '{print $5}')
+
+          echo "DEBUG_APK_PATH=release_dist/ZX-Icon-Changer-debug.apk" >> $GITHUB_ENV
+          echo "DEBUG_SHA256=$DEBUG_SHA256" >> $GITHUB_ENV
+          echo "DEBUG_SIZE_HUMAN=$DEBUG_SIZE_HUMAN" >> $GITHUB_ENV
+          echo "DEBUG_BYTES=$DEBUG_BYTES" >> $GITHUB_ENV
+
+          echo "Debug APK: release_dist/ZX-Icon-Changer-debug.apk ($DEBUG_SIZE_HUMAN) - SHA-256: $DEBUG_SHA256"
+
+          HAS_RELEASE_APK="false"
+          if [ -n "$RELEASE_APK" ] && [ -f "$RELEASE_APK" ]; then
+            RELEASE_BYTES=$(stat -c%s "$RELEASE_APK")
+            if [ "$RELEASE_BYTES" -gt 0 ]; then
+              cp "$RELEASE_APK" release_dist/ZX-Icon-Changer-release.apk
+              RELEASE_SHA256=$(sha256sum release_dist/ZX-Icon-Changer-release.apk | awk '{print $1}')
+              RELEASE_SIZE_HUMAN=$(ls -lh release_dist/ZX-Icon-Changer-release.apk | awk '{print $5}')
+              HAS_RELEASE_APK="true"
+
+              echo "RELEASE_APK_PATH=release_dist/ZX-Icon-Changer-release.apk" >> $GITHUB_ENV
+              echo "RELEASE_SHA256=$RELEASE_SHA256" >> $GITHUB_ENV
+              echo "RELEASE_SIZE_HUMAN=$RELEASE_SIZE_HUMAN" >> $GITHUB_ENV
+              echo "RELEASE_BYTES=$RELEASE_BYTES" >> $GITHUB_ENV
+              echo "Release APK: release_dist/ZX-Icon-Changer-release.apk ($RELEASE_SIZE_HUMAN) - SHA-256: $RELEASE_SHA256"
+            fi
+          fi
+          echo "HAS_RELEASE_APK=$HAS_RELEASE_APK" >> $GITHUB_ENV
+
+          # Tag and Release title resolution
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+            RELEASE_TITLE="ZX Icon Changer ${GITHUB_REF_NAME}"
+          else
+            TAG_NAME="v1.0.0-build${{ github.run_number }}"
+            RELEASE_TITLE="ZX Icon Changer v1.0.0 (Build #${{ github.run_number }})"
+          fi
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_ENV
           echo "RELEASE_TITLE=$RELEASE_TITLE" >> $GITHUB_ENV
 
-          echo "APK Found: $APK_FILE"
-          echo "Prepared Target: release_dist/ZX-Icon-Changer-debug.apk"
-          echo "Size: $FILE_SIZE_HUMAN ($FILE_SIZE_BYTES bytes)"
-          echo "SHA-256: $SHA256_HASH"
-
-      - name: Upload Backup Artifact
-        id: upload_artifact
+      - name: Upload Artifacts to GitHub Actions
+        id: upload_artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ZX-Icon-Changer-Debug-APK
-          path: release_dist/ZX-Icon-Changer-debug.apk
+          name: ZX-Icon-Changer-APKs
+          path: release_dist/*.apk
           retention-days: 30
 
-      - name: Create GitHub Release and Upload APK Asset
+      - name: Create GitHub Release and Upload APK Assets
         id: create_release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -95,22 +151,39 @@ jobs:
           # ${{ env.RELEASE_TITLE }}
           **Engineering & Branding:** ZUCCHERO XANN (ZX)
 
-          Build Debug APK asli yang dikompilasi secara otomatis melalui Android Gradle (`./gradlew assembleDebug`) di GitHub Actions.
+          Build APK resmi yang dikompilasi secara otomatis melalui Android Gradle di GitHub Actions.
 
           ---
 
-          ### 📦 Download Debug APK:
+          ### 📦 File Download APK (Assets):
+
+          #### 1. Debug APK:
           - **File:** `ZX-Icon-Changer-debug.apk`
-          - **Ukuran File:** ${{ env.FILE_SIZE_HUMAN }} (${{ env.FILE_SIZE_BYTES }} bytes)
-          - **SHA-256 Checksum:**
+          - **Ukuran File:** ${{ env.DEBUG_SIZE_HUMAN }} (${{ env.DEBUG_BYTES }} bytes)
+          - **SHA-256:**
             ```text
-            ${{ env.SHA256_HASH }}
+            ${{ env.DEBUG_SHA256 }}
             ```
 
+          EOF
+
+          if [ "${{ env.HAS_RELEASE_APK }}" == "true" ]; then
+            cat << 'EOF' >> release_notes.md
+          #### 2. Release APK (Optimized):
+          - **File:** `ZX-Icon-Changer-release.apk`
+          - **Ukuran File:** ${{ env.RELEASE_SIZE_HUMAN }} (${{ env.RELEASE_BYTES }} bytes)
+          - **SHA-256:**
+            ```text
+            ${{ env.RELEASE_SHA256 }}
+            ```
+
+          EOF
+          fi
+
+          cat << 'EOF' >> release_notes.md
           ---
 
           ### 📱 Kompatibilitas Sistem:
-          - **Build Variant:** Debug APK (Signed with Android debug keystore)
           - **Package Name:** `com.aistudio.zxiconchanger.app`
           - **Minimum Android:** Android 7.0 (API level 24, Nougat)
           - **Target Android:** Android 16 (API level 36)
@@ -118,49 +191,51 @@ jobs:
           ---
 
           ### ℹ️ Petunjuk Instalasi:
-          1. Unduh file `ZX-Icon-Changer-debug.apk` pada bagian Assets di bawah.
-          2. Buka file APK pada perangkat Android Anda.
+          1. Unduh salah satu file APK di bagian Assets di bawah (Debug APK untuk instalasi langsung, Release APK untuk performa optimal).
+          2. Buka file APK pada HP Android Anda.
           3. Berikan izin pemasangan aplikasi dari sumber tidak dikenal bila diminta.
           4. Buka aplikasi ZX Icon Changer dan nikmati kustomisasi launcher icon Anda.
           EOF
 
-          gh release create "${{ env.TAG_NAME }}" "${{ env.APK_PATH }}" \
+          # Create release and upload all APK files in release_dist
+          gh release create "${{ env.TAG_NAME }}" release_dist/*.apk \
             --title "${{ env.RELEASE_TITLE }}" \
-            --notes-file release_notes.md \
-            --prerelease
+            --notes-file release_notes.md
 
       - name: Verify Release & Asset Existence
         id: verify_release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "Verifying created release and uploaded asset..."
+          echo "Verifying created release and uploaded assets..."
           RELEASE_DATA=$(gh release view "${{ env.TAG_NAME }}" --json url,assets)
-          ASSET_COUNT=$(echo "$RELEASE_DATA" | jq '.assets | length')
-          ASSET_NAME=$(echo "$RELEASE_DATA" | jq -r '.assets[0].name // empty')
-          ASSET_SIZE=$(echo "$RELEASE_DATA" | jq -r '.assets[0].size // 0')
           RELEASE_URL=$(echo "$RELEASE_DATA" | jq -r '.url // empty')
+          ASSET_COUNT=$(echo "$RELEASE_DATA" | jq '.assets | length')
 
           if [ -z "$RELEASE_URL" ]; then
             echo "::error::CRITICAL: GitHub Release was not created or cannot be resolved!"
             exit 1
           fi
 
-          if [ "$ASSET_COUNT" -lt 1 ] || [ "$ASSET_NAME" != "ZX-Icon-Changer-debug.apk" ] || [ "$ASSET_SIZE" -le 0 ]; then
-            echo "::error::CRITICAL: Asset ZX-Icon-Changer-debug.apk not found in release or size is 0 bytes!"
+          if [ "$ASSET_COUNT" -lt 1 ]; then
+            echo "::error::CRITICAL: No APK assets found attached to GitHub Release!"
             exit 1
           fi
 
-          DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ env.TAG_NAME }}/ZX-Icon-Changer-debug.apk"
-          echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_ENV
+          DEBUG_DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ env.TAG_NAME }}/ZX-Icon-Changer-debug.apk"
+          echo "DEBUG_DOWNLOAD_URL=$DEBUG_DOWNLOAD_URL" >> $GITHUB_ENV
           echo "RELEASE_URL=$RELEASE_URL" >> $GITHUB_ENV
 
+          if [ "${{ env.HAS_RELEASE_APK }}" == "true" ]; then
+            RELEASE_DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${{ env.TAG_NAME }}/ZX-Icon-Changer-release.apk"
+            echo "RELEASE_DOWNLOAD_URL=$RELEASE_DOWNLOAD_URL" >> $GITHUB_ENV
+          fi
+
           echo "=============================================="
-          echo "RELEASE VERIFICATION PASSED"
-          echo "Release URL:  $RELEASE_URL"
-          echo "Asset Name:   $ASSET_NAME"
-          echo "Asset Size:   $ASSET_SIZE bytes"
-          echo "Download URL: $DOWNLOAD_URL"
+          echo "RELEASE ASSETS VERIFIED SUCCESSFULLY"
+          echo "Release URL: $RELEASE_URL"
+          echo "Total Assets: $ASSET_COUNT"
+          echo "Debug APK URL: $DEBUG_DOWNLOAD_URL"
           echo "=============================================="
 
       - name: Generate Workflow Summary (Success)
@@ -169,18 +244,28 @@ jobs:
           cat << EOF >> $GITHUB_STEP_SUMMARY
           ## BUILD STATUS: SUCCESS
 
-          - **APK:** \`ZX-Icon-Changer-debug.apk\`
-          - **SIZE:** ${{ env.FILE_SIZE_HUMAN }}
-          - **SHA-256:** \`${{ env.SHA256_HASH }}\`
-          - **RELEASE:** [${{ env.RELEASE_TITLE }}](${{ env.RELEASE_URL }})
-          - **DOWNLOAD:** [Download ZX-Icon-Changer-debug.apk](${{ env.DOWNLOAD_URL }})
+          - **Debug APK:** \`ZX-Icon-Changer-debug.apk\` (${{ env.DEBUG_SIZE_HUMAN }})
+          - **Debug SHA-256:** \`${{ env.DEBUG_SHA256 }}\`
+          - **Debug Download:** [Download Debug APK](${{ env.DEBUG_DOWNLOAD_URL }})
+          EOF
 
-          ### Detail Informasi:
+          if [ "${{ env.HAS_RELEASE_APK }}" == "true" ]; then
+            cat << EOF >> $GITHUB_STEP_SUMMARY
+          - **Release APK:** \`ZX-Icon-Changer-release.apk\` (${{ env.RELEASE_SIZE_HUMAN }})
+          - **Release SHA-256:** \`${{ env.RELEASE_SHA256 }}\`
+          - **Release Download:** [Download Release APK](${{ env.RELEASE_DOWNLOAD_URL }})
+          EOF
+          fi
+
+          cat << EOF >> $GITHUB_STEP_SUMMARY
+
+          - **Release Page:** [${{ env.RELEASE_TITLE }}](${{ env.RELEASE_URL }})
+
+          ### Direct Asset Links:
           \`\`\`text
-          APK File:     ZX-Icon-Changer-debug.apk
-          Release URL:  ${{ env.RELEASE_URL }}
-          Download URL: ${{ env.DOWNLOAD_URL }}
-          SHA-256:      ${{ env.SHA256_HASH }}
+          Debug APK:   ${{ env.DEBUG_DOWNLOAD_URL }}
+          Release APK: ${{ env.RELEASE_DOWNLOAD_URL }}
+          Release Page: ${{ env.RELEASE_URL }}
           \`\`\`
           EOF
 

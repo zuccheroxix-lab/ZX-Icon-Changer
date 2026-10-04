@@ -4,7 +4,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 data class ReleaseInfo(
@@ -15,6 +17,24 @@ data class ReleaseInfo(
     val releaseUrl: String,
     val downloadUrl: String?,
     val isNewer: Boolean
+)
+
+data class ApkAsset(
+    val fileName: String,
+    val downloadUrl: String,
+    val sizeBytes: Long,
+    val sizeHuman: String,
+    val isDebug: Boolean
+)
+
+data class ReleaseStatusInfo(
+    val hasRelease: Boolean,
+    val tagName: String,
+    val releaseTitle: String,
+    val publishedAt: String,
+    val debugApk: ApkAsset?,
+    val releaseApk: ApkAsset?,
+    val errorMessage: String? = null
 )
 
 sealed class UpdateCheckResult {
@@ -37,7 +57,9 @@ class UpdateRepository {
         const val REPO_URL = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO"
         const val ACTIONS_URL = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/actions"
         const val LATEST_RELEASE_PAGE_URL = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
+        const val RELEASES_PAGE_URL = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases"
         const val RELEASES_API_URL = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
+        const val ALL_RELEASES_API_URL = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases"
     }
 
     suspend fun checkForUpdates(currentVersion: String): UpdateCheckResult = withContext(Dispatchers.IO) {
@@ -152,6 +174,122 @@ class UpdateRepository {
             }
         } catch (e: Exception) {
             null
+        }
+    }
+
+    suspend fun fetchDetailedReleaseStatus(): ReleaseStatusInfo = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(ALL_RELEASES_API_URL)
+            .header("Accept", "application/vnd.github.v3+json")
+            .header("User-Agent", "ZX-Icon-Changer-App")
+            .get()
+            .build()
+
+        try {
+            client.newCall(request).execute().use { response ->
+                if (response.code == 404) {
+                    return@withContext ReleaseStatusInfo(
+                        hasRelease = false,
+                        tagName = "-",
+                        releaseTitle = "Belum Ada Rilis di GitHub",
+                        publishedAt = "-",
+                        debugApk = null,
+                        releaseApk = null,
+                        errorMessage = "Repository belum memiliki rilis publik di GitHub."
+                    )
+                }
+
+                if (!response.isSuccessful) {
+                    return@withContext ReleaseStatusInfo(
+                        hasRelease = false,
+                        tagName = "-",
+                        releaseTitle = "Error Jaringan",
+                        publishedAt = "-",
+                        debugApk = null,
+                        releaseApk = null,
+                        errorMessage = "Gagal menghubungi GitHub API (Kode HTTP: ${response.code})."
+                    )
+                }
+
+                val body = response.body?.string() ?: return@withContext ReleaseStatusInfo(
+                    hasRelease = false,
+                    tagName = "-",
+                    releaseTitle = "Respon Kosong",
+                    publishedAt = "-",
+                    debugApk = null,
+                    releaseApk = null
+                )
+
+                val jsonArray = JSONArray(body)
+                if (jsonArray.length() == 0) {
+                    return@withContext ReleaseStatusInfo(
+                        hasRelease = false,
+                        tagName = "-",
+                        releaseTitle = "Belum Ada Rilis",
+                        publishedAt = "-",
+                        debugApk = null,
+                        releaseApk = null,
+                        errorMessage = "Belum ada rilis yang dipublikasikan di repository ini."
+                    )
+                }
+
+                var latestTagName = ""
+                var latestTitle = ""
+                var latestPublished = ""
+                var foundDebug: ApkAsset? = null
+                var foundRelease: ApkAsset? = null
+
+                for (i in 0 until jsonArray.length()) {
+                    val rel = jsonArray.getJSONObject(i)
+                    if (latestTagName.isEmpty()) {
+                        latestTagName = rel.optString("tag_name", "")
+                        latestTitle = rel.optString("name", latestTagName)
+                        latestPublished = rel.optString("published_at", "").take(10)
+                    }
+
+                    val assets = rel.optJSONArray("assets") ?: continue
+                    for (j in 0 until assets.length()) {
+                        val asset = assets.getJSONObject(j)
+                        val name = asset.optString("name", "")
+                        if (!name.endsWith(".apk", ignoreCase = true)) continue
+
+                        val dlUrl = asset.optString("browser_download_url", "")
+                        val bytes = asset.optLong("size", 0L)
+                        val sizeMb = if (bytes > 0) {
+                            String.format(Locale.US, "%.1f MB", bytes / (1024.0 * 1024.0))
+                        } else {
+                            "Tersedia"
+                        }
+
+                        val isDebug = name.contains("debug", ignoreCase = true)
+                        if (isDebug && foundDebug == null) {
+                            foundDebug = ApkAsset(name, dlUrl, bytes, sizeMb, true)
+                        } else if (!isDebug && foundRelease == null) {
+                            foundRelease = ApkAsset(name, dlUrl, bytes, sizeMb, false)
+                        }
+                    }
+                }
+
+                ReleaseStatusInfo(
+                    hasRelease = foundDebug != null || foundRelease != null,
+                    tagName = latestTagName,
+                    releaseTitle = latestTitle,
+                    publishedAt = latestPublished,
+                    debugApk = foundDebug,
+                    releaseApk = foundRelease,
+                    errorMessage = null
+                )
+            }
+        } catch (e: Exception) {
+            ReleaseStatusInfo(
+                hasRelease = false,
+                tagName = "-",
+                releaseTitle = "Gagal Memeriksa",
+                publishedAt = "-",
+                debugApk = null,
+                releaseApk = null,
+                errorMessage = "Koneksi gagal: ${e.localizedMessage}"
+            )
         }
     }
 

@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Launch
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PushPin
@@ -118,6 +119,16 @@ fun HomeScreen(viewModel: MainViewModel) {
                             imageVector = Icons.Default.Backup,
                             contentDescription = "Backup & Restore",
                             tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                    IconButton(
+                        onClick = { viewModel.navigateTo(Screen.DOWNLOAD_RELEASE) },
+                        modifier = Modifier.testTag("home_download_apk_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Download APK",
+                            tint = ZxCyan
                         )
                     }
                     IconButton(
