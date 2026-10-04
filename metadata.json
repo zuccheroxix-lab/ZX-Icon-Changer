@@ -1,0 +1,6 @@
+{
+  "name": "ZX Icon Changer",
+  "description": "Aplikasi pengubah icon alternatif dan pembuat shortcut launcher modern dengan kustomisasi lengkap",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
