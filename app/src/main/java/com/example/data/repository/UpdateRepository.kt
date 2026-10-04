@@ -107,6 +107,53 @@ class UpdateRepository {
         }
     }
 
+    suspend fun getLatestReleaseInfo(): ReleaseInfo? = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(RELEASES_API_URL)
+            .header("Accept", "application/vnd.github.v3+json")
+            .header("User-Agent", "ZX-Icon-Changer-App")
+            .get()
+            .build()
+
+        try {
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext null
+                val bodyStr = response.body?.string() ?: return@withContext null
+                val json = JSONObject(bodyStr)
+                val tagName = json.optString("tag_name", "")
+                val releaseTitle = json.optString("name", tagName)
+                val releaseNotes = json.optString("body", "")
+                val releaseUrl = json.optString("html_url", LATEST_RELEASE_PAGE_URL)
+
+                var directDownloadUrl: String? = null
+                val assets = json.optJSONArray("assets")
+                if (assets != null) {
+                    for (i in 0 until assets.length()) {
+                        val asset = assets.getJSONObject(i)
+                        val name = asset.optString("name", "")
+                        if (name.endsWith(".apk", ignoreCase = true)) {
+                            directDownloadUrl = asset.optString("browser_download_url", null)
+                            break
+                        }
+                    }
+                }
+
+                val remoteVer = tagName.removePrefix("v").trim()
+                ReleaseInfo(
+                    tagName = tagName,
+                    versionName = remoteVer,
+                    releaseTitle = releaseTitle,
+                    releaseNotes = releaseNotes,
+                    releaseUrl = releaseUrl,
+                    downloadUrl = directDownloadUrl ?: releaseUrl,
+                    isNewer = false
+                )
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     private fun isVersionNewer(remote: String, local: String): Boolean {
         try {
             val rParts = remote.split(".").map { it.filter { ch -> ch.isDigit() }.toIntOrNull() ?: 0 }

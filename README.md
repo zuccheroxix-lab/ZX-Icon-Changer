@@ -1,7 +1,7 @@
 # ZX Icon Changer
 
-[![Build and Release Android APK](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions/workflows/build-apk.yml/badge.svg)](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions/workflows/build-apk.yml)
-[![Latest Release](https://img.shields.io/github/v/release/zuccheroxix-lab/ZX-Icon-Changer?color=00E5FF&label=Release)](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases/latest)
+[![Build & Release Android APK](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions/workflows/build-release.yml/badge.svg)](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions/workflows/build-release.yml)
+[![Release](https://img.shields.io/github/v/release/zuccheroxix-lab/ZX-Icon-Changer?color=00E5FF&label=Release)](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-Android%207.0%2B-brightgreen)](https://developer.android.com)
 
@@ -13,11 +13,16 @@ Dikembangkan dengan estetika futuristik **ZX Cyber** (*ZUCCHERO XANN*).
 
 ## 📥 Download APK
 
-| Versi | Tipe | Tautan Unduhan |
-| :--- | :--- | :--- |
-| **v1.0.0 (Latest)** | Stable Release | [Download APK](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases/latest) |
-| **v1.0.0 (Direct)** | Direct Asset | [ZX-Icon-Changer-v1.0.0-release.apk](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases/download/v1.0.0/ZX-Icon-Changer-v1.0.0-release.apk) |
-| **All Releases** | History | [Semua Rilis GitHub](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases) |
+Tautan rilis APK resmi disediakan langsung melalui GitHub Releases resmi:
+
+### Latest Stable APK
+- 👉 **[Download Latest APK](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases/latest)** *(Otomatis mengarah ke rilis publik terbaru)*
+
+### Releases
+- 📂 **[View All Releases](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases)** *(Daftar seluruh riwayat versi rilis, changelog, dan file APK)*
+
+> **Catatan Distribusi**:
+> Setelah project ini dipublish ke GitHub dan tag rilis (contoh: `v1.0.0`) dibuat, GitHub Actions otomatis membangun file APK asli dan melampirkannya ke halaman rilis di atas.
 
 ---
 
@@ -58,7 +63,7 @@ Dikembangkan dengan estetika futuristik **ZX Cyber** (*ZUCCHERO XANN*).
   - Impor dan pulihkan cadangan secara offline tanpa server eksternal.
 
 - **Pembaruan Aplikasi (Update Checker)**:
-  - Fitur bawaan di menu Pengaturan untuk memeriksa rilis terbaru langsung dari GitHub API resmi.
+  - Terintegrasi langsung dengan GitHub Releases API resmi di menu Pengaturan.
 
 ---
 
@@ -77,7 +82,9 @@ Dikembangkan dengan estetika futuristik **ZX Cyber** (*ZUCCHERO XANN*).
 
 ---
 
-## 🛠️ Kompilasi & Build Lokal
+## 🛠️ Build
+
+Instruksi kompilasi lokal menggunakan Gradle Wrapper yang tersedia:
 
 ### 1. Clone Repository
 ```bash
@@ -111,12 +118,13 @@ chmod +x gradlew
 
 ## 🚀 Otomasi CI/CD (GitHub Actions)
 
-Project ini dilengkapi workflow GitHub Actions di `.github/workflows/build-apk.yml`:
+Project ini dilengkapi workflow GitHub Actions di `.github/workflows/build-release.yml`:
 1. Otomatis berjalan saat ada `push` ke branch `main`, manual `workflow_dispatch`, atau pembuatan `tag` rilis (misal: `v1.0.0`).
 2. Menjalankan pengujian `./gradlew test` dan membangun APK Debug & Release.
-3. Menghitung checksum SHA-256 dan ukuran file secara otomatis.
-4. Mengunggah APK ke GitHub Actions Artifact.
-5. Saat tag rilis (`v*`) dipush, otomatis membuat **GitHub Release** dan melampirkan file APK.
+3. Mencari APK hasil build secara otomatis tanpa hardcoded path.
+4. Menghitung checksum SHA-256 dan ukuran file secara otomatis.
+5. Mengunggah artifact APK (`ZX-Icon-Changer-APK`) ke GitHub Actions.
+6. Saat tag rilis (`v*`) dipush, otomatis membuat **GitHub Release** dan melampirkan file APK resmi: `ZX-Icon-Changer-v1.0.0.apk`.
 
 ### Konfigurasi Signing Release (GitHub Secrets)
 Untuk menandatangani Release APK secara otomatis menggunakan keystore Anda sendiri di GitHub Actions, tambahkan Secrets berikut di **Settings $\rightarrow$ Secrets and variables $\rightarrow$ Actions**:
@@ -130,35 +138,35 @@ Untuk menandatangani Release APK secara otomatis menggunakan keystore Anda sendi
 
 ---
 
-## 📤 Langkah Push ke Repository GitHub Anda
+## 📤 Langkah Publish & Rilis ke GitHub
 
-Jika Anda ingin mempublikasikan project ini ke akun GitHub Anda:
+Ikuti langkah-langkah berikut untuk mempublish project ini ke GitHub:
 
 ```bash
-# Inisialisasi git jika belum ada
+# 1. Inisialisasi git dan tambahkan remote repository
 git init
-
-# Tambahkan remote repository Anda
 git remote add origin https://github.com/zuccheroxix-lab/ZX-Icon-Changer.git
 
-# Pastikan berada di branch main
+# 2. Set branch utama ke main
 git branch -M main
 
-# Tambahkan semua file dan commit
+# 3. Tambahkan seluruh file dan commit
 git add .
-git commit -m "feat: Upgrade ZX Icon Changer v1.0.0 with GitHub Actions & Release pipeline"
+git commit -m "feat: Ready ZX Icon Changer v1.0.0 for GitHub distribution & CI/CD"
 
-# Push ke repository GitHub
+# 4. Push ke GitHub
 git push -u origin main
 
-# Untuk membuat rilis v1.0.0 otomatis:
+# 5. Untuk membuat Release APK otomatis v1.0.0:
 git tag v1.0.0
 git push origin v1.0.0
 ```
+
+Setelah push tag `v1.0.0`, GitHub Actions akan otomatis mengompilasi APK dan melampirkannya ke halaman [Releases](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases).
 
 ---
 
 ## 📄 Lisensi
 
-Project ini dilisensikan di bawah lisensi [MIT License](LICENSE).
+Project ini dilisensikan di bawah lisensi [MIT License](LICENSE).  
 Copyright © 2026 **ZUCCHERO XANN**.

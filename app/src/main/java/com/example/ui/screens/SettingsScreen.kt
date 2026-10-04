@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -70,12 +71,15 @@ fun SettingsScreen(viewModel: MainViewModel) {
     }
 
     val context = androidx.compose.ui.platform.LocalContext.current
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     val currentThemeMode by viewModel.themeMode.collectAsState()
     var defaultShape by remember { mutableStateOf(viewModel.preferencesManager.defaultIconShape) }
     var defaultPadding by remember { mutableIntStateOf(viewModel.preferencesManager.defaultPadding) }
     var confirmDelete by remember { mutableStateOf(viewModel.preferencesManager.confirmBeforeDelete) }
     val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsState()
     val updateCheckResult by viewModel.updateCheckResult.collectAsState()
+    var isCheckingRelease by remember { mutableStateOf(false) }
+    var releaseUnavailableMessage by remember { mutableStateOf<String?>(null) }
 
     var showResetDialog by remember { mutableStateOf(false) }
 
@@ -290,15 +294,26 @@ fun SettingsScreen(viewModel: MainViewModel) {
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         ZXButton(
-                            text = "Download Latest APK (Official)",
+                            text = if (isCheckingRelease) "Memeriksa Rilis..." else "Download APK (Official Release)",
                             onClick = {
-                                val intent = android.content.Intent(
-                                    android.content.Intent.ACTION_VIEW,
-                                    android.net.Uri.parse(com.example.data.repository.UpdateRepository.LATEST_RELEASE_PAGE_URL)
-                                ).apply { flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK }
-                                context.startActivity(intent)
+                                coroutineScope.launch {
+                                    isCheckingRelease = true
+                                    val release = viewModel.updateRepository.getLatestReleaseInfo()
+                                    isCheckingRelease = false
+                                    if (release != null) {
+                                        val url = release.downloadUrl ?: release.releaseUrl
+                                        val intent = android.content.Intent(
+                                            android.content.Intent.ACTION_VIEW,
+                                            android.net.Uri.parse(url)
+                                        ).apply { flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK }
+                                        context.startActivity(intent)
+                                    } else {
+                                        releaseUnavailableMessage = "APK release belum tersedia.\n\nRelease resmi belum dipublikasikan di repository GitHub. Silakan buat tag rilis (misal v1.0.0) di GitHub untuk membuat APK secara otomatis."
+                                    }
+                                }
                             },
                             icon = Icons.Default.Download,
+                            enabled = !isCheckingRelease,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .testTag("settings_download_latest_btn")
@@ -465,6 +480,25 @@ fun SettingsScreen(viewModel: MainViewModel) {
                     TextButton(onClick = { viewModel.clearUpdateCheckResult() }) {
                         Text("Nanti", color = MaterialTheme.colorScheme.onSurface)
                     }
+                }
+            },
+            containerColor = ZxSurfaceDark
+        )
+    }
+
+    // Release Unavailable Dialog
+    releaseUnavailableMessage?.let { msg ->
+        AlertDialog(
+            onDismissRequest = { releaseUnavailableMessage = null },
+            title = {
+                Text("Informasi Rilis", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text(msg, color = ZxTextSecondaryDark)
+            },
+            confirmButton = {
+                TextButton(onClick = { releaseUnavailableMessage = null }) {
+                    Text("Mengerti", color = ZxCyan, fontWeight = FontWeight.Bold)
                 }
             },
             containerColor = ZxSurfaceDark

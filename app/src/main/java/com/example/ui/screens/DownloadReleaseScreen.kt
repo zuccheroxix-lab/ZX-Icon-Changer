@@ -4,7 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,22 +14,27 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.ListAlt
 import androidx.compose.material.icons.filled.SystemUpdate
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -49,8 +53,10 @@ import com.example.ui.components.ZXOutlinedButton
 import com.example.ui.components.ZXTopBar
 import com.example.ui.theme.ZxCyan
 import com.example.ui.theme.ZxNeonGreen
+import com.example.ui.theme.ZxSurfaceDark
 import com.example.ui.theme.ZxTextMutedDark
 import com.example.ui.theme.ZxTextSecondaryDark
+import kotlinx.coroutines.launch
 
 @Composable
 fun DownloadReleaseScreen(viewModel: MainViewModel) {
@@ -59,7 +65,11 @@ fun DownloadReleaseScreen(viewModel: MainViewModel) {
     }
 
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val isCheckingUpdate by viewModel.isCheckingUpdate.collectAsState()
+
+    var isVerifyingDownload by remember { mutableStateOf(false) }
+    var downloadStatusDialog by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -137,16 +147,27 @@ fun DownloadReleaseScreen(viewModel: MainViewModel) {
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Official Download APK Button
+                    // Official Download APK Button with real availability check
                     ZXButton(
-                        text = "DOWNLOAD APK RESMI",
+                        text = if (isVerifyingDownload) "Memeriksa Rilis..." else "DOWNLOAD LATEST APK",
                         onClick = {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(UpdateRepository.LATEST_RELEASE_PAGE_URL)).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            coroutineScope.launch {
+                                isVerifyingDownload = true
+                                val release = viewModel.updateRepository.getLatestReleaseInfo()
+                                isVerifyingDownload = false
+                                if (release != null) {
+                                    val targetUrl = release.downloadUrl ?: release.releaseUrl
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {
+                                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                                    }
+                                    context.startActivity(intent)
+                                } else {
+                                    downloadStatusDialog = "APK release belum tersedia.\n\nRelease resmi belum dipublikasikan di repository GitHub. Silakan buat tag release (misal v1.0.0) di GitHub untuk memicu pembuatan APK otomatis via GitHub Actions."
+                                }
                             }
-                            context.startActivity(intent)
                         },
                         icon = Icons.Default.Download,
+                        enabled = !isVerifyingDownload,
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("download_screen_apk_button")
@@ -154,9 +175,27 @@ fun DownloadReleaseScreen(viewModel: MainViewModel) {
 
                     Spacer(modifier = Modifier.height(10.dp))
 
+                    // View All Releases Button
+                    ZXOutlinedButton(
+                        text = "Lihat Semua Rilis (GitHub)",
+                        onClick = {
+                            val intent = Intent(
+                                Intent.ACTION_VIEW,
+                                Uri.parse("${UpdateRepository.REPO_URL}/releases")
+                            ).apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK }
+                            context.startActivity(intent)
+                        },
+                        icon = Icons.Default.ListAlt,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("download_screen_all_releases_btn")
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     // GitHub Repository Button
                     ZXOutlinedButton(
-                        text = "Buka Repository GitHub",
+                        text = "Repository Source Code",
                         onClick = {
                             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(UpdateRepository.REPO_URL)).apply {
                                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -236,6 +275,25 @@ fun DownloadReleaseScreen(viewModel: MainViewModel) {
             Spacer(modifier = Modifier.height(24.dp))
         }
     }
+
+    // Availability Dialog if release is not yet on GitHub
+    downloadStatusDialog?.let { message ->
+        AlertDialog(
+            onDismissRequest = { downloadStatusDialog = null },
+            title = {
+                Text("Informasi Rilis", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold)
+            },
+            text = {
+                Text(message, color = ZxTextSecondaryDark)
+            },
+            confirmButton = {
+                TextButton(onClick = { downloadStatusDialog = null }) {
+                    Text("Mengerti", color = ZxCyan, fontWeight = FontWeight.Bold)
+                }
+            },
+            containerColor = ZxSurfaceDark
+        )
+    }
 }
 
 @Composable
@@ -247,6 +305,10 @@ private fun SpecRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(text = label, style = MaterialTheme.typography.bodySmall, color = ZxTextMutedDark)
-        Text(text = value, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium), color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+            color = MaterialTheme.colorScheme.onSurface
+        )
     }
 }
