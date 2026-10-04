@@ -294,7 +294,22 @@ fun SettingsScreen(viewModel: MainViewModel) {
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         ZXButton(
-                            text = if (isCheckingRelease) "Memeriksa Rilis..." else "Download APK (Official Release)",
+                            text = "Download APK (GitHub Actions)",
+                            onClick = {
+                                val intent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(com.example.data.repository.UpdateRepository.ACTIONS_URL)
+                                ).apply { flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK }
+                                context.startActivity(intent)
+                            },
+                            icon = Icons.Default.Download,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("settings_download_actions_btn")
+                        )
+
+                        ZXOutlinedButton(
+                            text = if (isCheckingRelease) "Memeriksa Rilis..." else "Download Release APK (Official)",
                             onClick = {
                                 coroutineScope.launch {
                                     isCheckingRelease = true
@@ -308,7 +323,7 @@ fun SettingsScreen(viewModel: MainViewModel) {
                                         ).apply { flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK }
                                         context.startActivity(intent)
                                     } else {
-                                        releaseUnavailableMessage = "APK release belum tersedia.\n\nRelease resmi belum dipublikasikan di repository GitHub. Silakan buat tag rilis (misal v1.0.0) di GitHub untuk membuat APK secara otomatis."
+                                        releaseUnavailableMessage = "APK release belum tersedia.\n\nRelease resmi belum dipublikasikan di repository GitHub. Anda dapat mengunduh Debug APK dari artifact GitHub Actions atau membuat tag rilis di GitHub."
                                     }
                                 }
                             },

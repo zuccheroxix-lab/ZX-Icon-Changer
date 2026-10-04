@@ -147,9 +147,26 @@ fun DownloadReleaseScreen(viewModel: MainViewModel) {
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Official Download APK Button with real availability check
+                    // Primary Action: Download Debug APK via GitHub Actions
                     ZXButton(
-                        text = if (isVerifyingDownload) "Memeriksa Rilis..." else "DOWNLOAD LATEST APK",
+                        text = "DOWNLOAD DEBUG APK (GITHUB ACTIONS)",
+                        onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(UpdateRepository.ACTIONS_URL)).apply {
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                            }
+                            context.startActivity(intent)
+                        },
+                        icon = Icons.Default.Download,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("download_screen_debug_apk_btn")
+                    )
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Secondary Action: Download Release APK with real availability verification
+                    ZXOutlinedButton(
+                        text = if (isVerifyingDownload) "Memeriksa Rilis..." else "Download Release APK (Official)",
                         onClick = {
                             coroutineScope.launch {
                                 isVerifyingDownload = true
@@ -162,7 +179,7 @@ fun DownloadReleaseScreen(viewModel: MainViewModel) {
                                     }
                                     context.startActivity(intent)
                                 } else {
-                                    downloadStatusDialog = "APK release belum tersedia.\n\nRelease resmi belum dipublikasikan di repository GitHub. Silakan buat tag release (misal v1.0.0) di GitHub untuk memicu pembuatan APK otomatis via GitHub Actions."
+                                    downloadStatusDialog = "APK release belum tersedia.\n\nRelease resmi belum dipublikasikan di repository GitHub. Anda dapat mengunduh Debug APK dari artifact GitHub Actions di tombol utama."
                                 }
                             }
                         },
@@ -170,7 +187,7 @@ fun DownloadReleaseScreen(viewModel: MainViewModel) {
                         enabled = !isVerifyingDownload,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("download_screen_apk_button")
+                            .testTag("download_screen_release_apk_btn")
                     )
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -206,6 +223,26 @@ fun DownloadReleaseScreen(viewModel: MainViewModel) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("download_screen_github_button")
+                    )
+                }
+            }
+
+            // Artifact Instructions Card
+            ZXCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "CARA MENGUNDUH DEBUG APK DI GITHUB",
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        ),
+                        color = ZxCyan
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "1. Tekan tombol 'DOWNLOAD DEBUG APK' di atas untuk membuka tab Actions.\n2. Klik run workflow 'Build Debug APK' terbaru (tanda centang hijau).\n3. Gulir ke bagian bawah ke tabel 'Artifacts'.\n4. Klik 'ZX-Icon-Changer-Debug-APK' untuk mengunduh 'ZX-Icon-Changer-debug.apk'.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = ZxTextSecondaryDark
                     )
                 }
             }

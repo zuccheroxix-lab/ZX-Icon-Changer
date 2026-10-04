@@ -35,6 +35,7 @@ class UpdateRepository {
         const val GITHUB_OWNER = "zuccheroxix-lab"
         const val GITHUB_REPO = "ZX-Icon-Changer"
         const val REPO_URL = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO"
+        const val ACTIONS_URL = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/actions"
         const val LATEST_RELEASE_PAGE_URL = "https://github.com/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
         const val RELEASES_API_URL = "https://api.github.com/repos/$GITHUB_OWNER/$GITHUB_REPO/releases/latest"
     }

@@ -1,5 +1,6 @@
 # ZX Icon Changer
 
+[![Build Debug APK](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions/workflows/build-debug.yml/badge.svg)](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions/workflows/build-debug.yml)
 [![Build & Release Android APK](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions/workflows/build-release.yml/badge.svg)](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions/workflows/build-release.yml)
 [![Release](https://img.shields.io/github/v/release/zuccheroxix-lab/ZX-Icon-Changer?color=00E5FF&label=Release)](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -11,7 +12,32 @@ Dikembangkan dengan estetika futuristik **ZX Cyber** (*ZUCCHERO XANN*).
 
 ---
 
-## 📥 Download APK
+## 🚀 DEBUG APK
+
+Debug APK dibuat otomatis melalui GitHub Actions setiap kali ada push atau pemanggilan manual.
+
+👉 **[Buka Halaman GitHub Actions](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions)**
+
+### Cara Mengunduh Debug APK dari Artifact:
+1. Buka halaman [GitHub Actions](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/actions).
+2. Klik workflow run terbaru pada workflow **Build Debug APK** yang berstatus hijau (sukses).
+3. Gulir ke bagian bawah pada tabel **Artifacts**.
+4. Klik **`ZX-Icon-Changer-Debug-APK`** untuk mendownload file arsip yang berisi `ZX-Icon-Changer-debug.apk`.
+5. Ekstrak dan pasang pada perangkat Android Anda.
+
+### Cara Membuat Download Debug APK Langsung (Halaman Releases):
+Jika Anda ingin mendownload file APK Debug langsung dari tab Releases tanpa perlu mengekstrak zip artifact:
+1. Buat tag release debug di repository:
+   ```bash
+   git tag debug-v1.0.0
+   git push origin debug-v1.0.0
+   ```
+   *(Atau jalankan workflow **Build Debug APK** secara manual melalui tombol "Run workflow" di tab Actions dengan opsi centang "Buat GitHub Release")*.
+2. GitHub Actions akan otomatis mengompilasi APK debug, memverifikasi integritas file, dan melampirkan `ZX-Icon-Changer-debug.apk` serta `ZX-Icon-Changer-debug-v1.0.0.apk` ke halaman [Releases](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases).
+
+---
+
+## 📥 Download APK (Release)
 
 Tautan rilis APK resmi disediakan langsung melalui GitHub Releases resmi:
 
@@ -20,9 +46,6 @@ Tautan rilis APK resmi disediakan langsung melalui GitHub Releases resmi:
 
 ### Releases
 - 📂 **[View All Releases](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases)** *(Daftar seluruh riwayat versi rilis, changelog, dan file APK)*
-
-> **Catatan Distribusi**:
-> Setelah project ini dipublish ke GitHub dan tag rilis (contoh: `v1.0.0`) dibuat, GitHub Actions otomatis membangun file APK asli dan melampirkannya ke halaman rilis di atas.
 
 ---
 
@@ -118,23 +141,9 @@ chmod +x gradlew
 
 ## 🚀 Otomasi CI/CD (GitHub Actions)
 
-Project ini dilengkapi workflow GitHub Actions di `.github/workflows/build-release.yml`:
-1. Otomatis berjalan saat ada `push` ke branch `main`, manual `workflow_dispatch`, atau pembuatan `tag` rilis (misal: `v1.0.0`).
-2. Menjalankan pengujian `./gradlew test` dan membangun APK Debug & Release.
-3. Mencari APK hasil build secara otomatis tanpa hardcoded path.
-4. Menghitung checksum SHA-256 dan ukuran file secara otomatis.
-5. Mengunggah artifact APK (`ZX-Icon-Changer-APK`) ke GitHub Actions.
-6. Saat tag rilis (`v*`) dipush, otomatis membuat **GitHub Release** dan melampirkan file APK resmi: `ZX-Icon-Changer-v1.0.0.apk`.
-
-### Konfigurasi Signing Release (GitHub Secrets)
-Untuk menandatangani Release APK secara otomatis menggunakan keystore Anda sendiri di GitHub Actions, tambahkan Secrets berikut di **Settings $\rightarrow$ Secrets and variables $\rightarrow$ Actions**:
-
-- `KEYSTORE_BASE64`: File keystore `.jks` yang telah dienkode ke Base64 (`base64 -w 0 your-keystore.jks`).
-- `KEYSTORE_PASSWORD`: Kata sandi keystore.
-- `KEY_ALIAS`: Alias kunci upload.
-- `KEY_PASSWORD`: Kata sandi kunci.
-
-*Catatan: Jika secrets di atas belum diisi, workflow secara cerdas menggunakan fallback signing sementara sehingga build tidak gagal.*
+Project ini dilengkapi workflow GitHub Actions:
+- **`build-debug.yml`**: Membangun APK Debug setiap push ke `main`, mengunggah artifact `ZX-Icon-Changer-Debug-APK`, dan membuat rilis saat tag `debug-v*` dipush.
+- **`build-release.yml`**: Membangun APK Release dan membuat rilis saat tag `v*` dipush.
 
 ---
 
@@ -160,9 +169,11 @@ git push -u origin main
 # 5. Untuk membuat Release APK otomatis v1.0.0:
 git tag v1.0.0
 git push origin v1.0.0
-```
 
-Setelah push tag `v1.0.0`, GitHub Actions akan otomatis mengompilasi APK dan melampirkannya ke halaman [Releases](https://github.com/zuccheroxix-lab/ZX-Icon-Changer/releases).
+# 6. Atau untuk membuat Debug Release APK langsung:
+git tag debug-v1.0.0
+git push origin debug-v1.0.0
+```
 
 ---
 
